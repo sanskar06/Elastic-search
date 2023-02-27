@@ -1,1 +1,3 @@
-something
+https://dylancastillo.co/elasticsearch-python/ --->mapping with python
+
+https://www.elastic.co/guide/en/elasticsearch/client/python-api/current/examples.html
