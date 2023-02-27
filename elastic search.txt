@@ -1,0 +1,562 @@
+-------------------------------------------
+|	ID - elastic 		            |
+|	Password - ****************	      |
+-------------------------------------------	
+
+
+
+Understanding basic architeture:-
+-----------------------------------
+
+* Nodes:- node refers to instnace of elasticsearch and not a machine so we can run many no of data in machines 
+          node can be single or more than one 
+          node installs data so we can install many terabytes of data if we need to
+	    we can run many nodes as we wants 
+	    each nodes will be the part of our data  
+* cluster :- it is the collection of related nodes together contsins all of datas 
+		 it can be many cluster if we want to but one is enough  
+
+Console commands :-   * GET /_cluster/health  ---> to cheak thr healthe of the cluster 
+			  * GET /_cat/nodes?v
+			  * GET /_cat/indices?v
+			  * GET /_cat/indices?v&expand_wildcards=all
+			
+			  < https://www.elastic.co/guide/en/elasticsearch/reference/current/cluster-nodes-info.html >
+
+* sharding :- sharding is the way to divide indicies into smaller pieces
+              each piece is referred to as a shard 
+	    	 sharding is done at the index level 
+              
+		 example:-  Node 1 having 500GB and Node 2 having the 500GB and Index itself having 600GB 
+			     so not possible to occupy any of the node so we can do the horizantal partition 
+			     of index as name shard A and Shard B the they both can be place in node 1 & 2 repactabily
+
+
+___________________________________________
+#inserting into a document 
+    ---------------------------------
+    |    POST /products/_doc        |                        
+    |    {                          |
+    |    "name":"Coffee Maker",     |                    
+    |    "price": 64,               |            
+    |    "in_stock":10              |
+    |                               |
+    |    }                          |
+    ---------------------------------
+#inserting into a document with a id
+    ----------------------------------
+    |    GET /products/_doc/100      |                               
+    |    {                           |       
+    |    "name":"Toster",            |                       
+    |    "price": 60,                |                                   
+    |    "in_stock":9                |   
+    |                                |
+    |    }                           | 
+    ---------------------------------- 
+# retreving the document 
+    ---------------------------------------	
+    |    GET /products/_doc/100           |
+    ---------------------------------------    
+# updating a document 
+    -----------------------------------
+    |    POST /products/_update/100   |                                         
+    |    {                            |         
+    |    "doc":{                      |                 
+    |        "in_stock":3             |                         
+    |    }                            |         
+    |    }                            |         
+    -----------------------------------
+#scripting updates 
+    -------------------------------------------------
+    |    POST /products/_update/100                 |                                        
+    |    {                                          |
+    |    "script":{                                 |        
+    |        "source": "ctx._source.in_stock--"     |                                    
+    |    }                                          |
+    |    }                                          |
+    -------------------------------------------------
+    --------------------------------
+    |	GET /products/_doc/100	  |
+    --------------------------------
+    -------------------------------------------------
+    |    POST /products/_update/100                 |                                        
+    |    {                                          |
+    |    "script":{                                 |        
+    |        "source": "ctx._source.in_stock=10"    |                                        
+    |    }                                          |
+    |    }                                          |
+    -------------------------------------------------
+    ---------------------------------------------
+    |    POST /products/_update/101             |                                   
+    |    {                                      |
+    |    "script":{                             |        
+    |        "source": "ctx._source.in_stock++" |                                    
+    |    },                                     |
+    |    "upsert": {                            |            
+    |        "name":"blender",                  |                    
+    |        "price":399,                       |                
+    |        "in_stock":5                       |                
+    |      }                                    |    
+    |    }                                      |
+    -----------------------------------------------
+______________________________________________________
+		
+* Document Versioning:
+	Not a revision history
+	_version metadata field with every document
+	The value is Integer which is incremented by one when modifying a document and this value is retained for 60 seconds when deleting a document
+	configured with index.gc_deletes
+	Versioning tells you how many times a document is modified and is not used much
+
+
+* OPTIMISTIC CONCURRENCY CONTROL:
+Here we consider a scenario in which two events are trying to update the same value inside a document. Let's say they are both trying to update the quantity parameter for a product.
+If both the events acquired the value to update at the same time they'll get the same value and if one of the events updates the value and then other one updates the value, what the other one did is update the old value so data becomes inconsistent so what we can do is check for primary term and sequence number for the document and if it matches then only the update will take place else the other event  will acquire the value again and then goon to updating it
+
+* PESSIMISTIC (just for RDBMS) : We use locks here. but this will remove concurrency and slow down the system so mostly optimistic approach is used
+
+
+* Delete by query 
+
+* Update by query
+
+* Batch processing
+---------------------
+BULK API:
+This API allows you to insert, update and delete documnets with a single query
+POST /_bulk
+{"index":{"_index":"products","_id":200}}
+{ "name": "Espresso Machine", "price": 199, "in_stock": 5 }
+{ "create": { "_index": "products", "_id": 201 } }
+{ "name": "Milk Frother", "price": 149, "in_stock": 14 }
+
+In this query 1st line should specify the action and the next line should specify the data
+And then you can follow this pattern
+
+
+
+___________________________________________________________________________________
+
+# mapping and analysis:-
+
+Intro to analysis:-Document --> Analyser --> Storage
+Three Analysers: Character filters, tokenizer, Token filters
+
+Character Filters:
+-------------------
+- Adds,removes or changes characters
+- Analyzers contain zero or more character filters
+- Character filters are applied in the order in which they are specified
+Example We can use the html_strip filter extract text from html
+
+Tokenizers:
+------------
+An analyzer contains one tokenizer
+Tokenizes a string, splits it into tokens
+Characters may be stripped as a part of tokenization
+
+Token filters
+-------------
+- Receive the output of the tokenizer as input
+A token filter can add,remove or modeify tokens
+An analyser contains zero or more token filters
+Token filters are applied in the order in which they are specified
+Example- lowercase filter 
+
+Standard Analyzer :- Character filter-None, Tokenizer- standard, Token filter-Lowercase
+
+Inverted Indices:
+------------------
+Mapping between terms(tokens) and which documents contain them.
+Outside the context of analyzers, we use the ternminology "terms"
+It stores 1 or 0 if the term is in the document
+Terms are sorted alphabetically
+It also contains information for relevance scoring
+Inverted indices are created according to the field values
+They are used only for text fields
+Other data types such as integer,float,dates,geospatial data are stored using BKD trees.
+Inverted index is created and maintained by Apache Lucene
+
+Mapping:
+----------
+It defines the structure of documents(e.g fields and their data types)
+Also used to configure how values are indexed
+Similar to a table'schema in a relational database
+Explicit mapping- here we define structure for the index ourselves
+Dynamic mapping- Elasticsearch generates the field mappings for us
+We can combine both mappings.
+
+
+*Overview of data type:-
+-------------------------
+   1) object datatype  --->used for any JSON object
+				object may be nested
+   2) nested data type ---> Similar to the object datatype , but maintaiins obj relationdship
+				  Useful when indexing array of objects 
+				  Enables us to query independently
+				  must use the nested query 
+				  nested objs are stored as hidden documents 
+   3) Keyword data type ---> Used for exact matching of values 
+				   Typically used for filtering, aggregations,and sorting
+				   E.g. searching for an articles with a status of PUBLISHED
+				   for full-text searches, use the text data type instead
+						
+ * How the keyword field work :-
+   ----------------------------
+	-- How keyword field are analyzed
+		i) keyword fields are analyzed with the keyword analyzer
+		ii)the keyword analyzer is a no-op analyzer
+			* It o/p the unmodified string as a single token 
+			* This is then placed into the inverted index 
+		iii) keyword fields are used for the exact matching ,aggregations,and sorting 
+              ----------------------------------------------------
+      	 API->  | POST /_analyze                                  |
+	        |      {                                          |
+  	        |	  "text":"This IS A standard! TEXT DOC.",    | 
+  	        |	  "analyzer":"keyword"                       |                       
+	        |	}                                            |
+	        ---------------------------------------------------
+               -----------------------------------------------------
+	output->|{                                                  |
+  		  |	"tokens": [                                    |
+		  |	    {							 |
+		  |	      "token": "This IS A standard! TEXT DOC.",|
+ 		  |	      "start_offset": 0,                       |
+		  |	      "end_offset": 29,                        |
+		  |	      "type": "word",                          |
+		  |	      "position": 0                            |
+		  |	    }                                          |
+		  |	  ]                                            |
+		  | }                                                 |
+		  ----------------------------------------------------
+       NOTE:- HERE WE CAN CLEARLY THE AFTER USING AN KEYWORD ANALYZER THE STRING IS COMPLETLY UNTOUCHED
+	
+	[:--> so we can conclued it as the we can use the keyword data type only where we want the exact matches 
+	      E.g. --- Email ]
+
+* Intro to type coresion
+----------------------------
+	-- Data types are inspected when indexing documents 
+	--	In elasticsearch when inserting documents, it check for the data types
+	--	If we supply 7.5 at the beginning then in mapping the tyoe of that variable will be set to float
+	--	The if we give "7.5" then it will check if the value received contains a numeric value and if it does then it will store it as float else throw an error
+
+	----------------------------------------------
+API--> |        PUT /coercion_test/_doc/2           |
+	|		{                               |
+  	|			"price":"7.5"             |
+	|		}                               |
+	|		                                |
+	|	    GET /coercion_test/_doc/2          |
+	----------------------------------------------
+	--------------------------------------------------
+o/p-->|   	 {                                         |                              
+	|		  "_index": "coercion_test",        |                          
+	|		  "_id": "2",                       |          
+	|		  "_version": 2,                    |              
+	|		  "_seq_no": 1,                     |          
+	|		  "_primary_term": 1,               |                  
+ 	|		  "found": true,                    |              
+	|		  "_source": {                      |          
+	|	        "price": "7.5"                     |              
+	|		  }                                 |
+	|	     }                                     |
+	--------------------------------------------------
+
+	understanding _source:--  * The _souce object contains the original values("7.5") and not the indexed values(7.5)
+				      * Search queries use indexed values and not _source
+				      * Coercion is not used for dynamic mapping
+				      * We must always use the correct data types
+				      * _source doesnot reflect how values are indexed 
+* Array in Elastic search:-
+----------------------------
+
+	--> There is no such thing
+	--> Any field can contain zero or more values there is no need for configuration and simply supply an array when indexing a document
+	--> Text data type assigned in dynamic mapping
+	--> All the values given in the array are simply merged together
+	--> and while tokenizing seperated into different tokens
+	--> Array values should be of the same data type
+	--> Coercion only works for fields that are already mapped
+
+Explicit Mapping Example:
+--------------------------
+    ----------------------------------------------
+    |    PUT /review                             |                                                           
+    |    {                                       |               
+    |    "mappings":{                            |                           
+    |        "properties":{                      |                               
+    |        "rating":{"type":"float"},          |                                           
+    |        "content":{"type":"text"},          |                                           
+    |        "product_id":{"type":"integer"},    |                                                   
+    |        "author":{                          |                           
+    |            "properties":{                  |                                   
+    |            "first_name":{"type":"text"},   |                                                   
+    |            "last_name":{"type":"text"},    |                                                   
+    |            "email":{"type":"keyword"}      |                                               
+    |            }                               |                       
+    |          }                                 |                       
+    |        }                                   |                   
+    |      }                                     |                   
+    |    }                                       |   
+    ----------------------------------------------            
+
+*Retrieve mappings:
+	---------------------------
+	|  GET /review/_mapping	|
+	---------------------------
+
+*Retrieve mapping for a particular field:
+	----------------------------------------
+	|  GET /review/_mapping/field/content	|
+	----------------------------------------
+
+*We can also define mappings using the dot notation:
+    ------------------------------------------------------
+    |    PUT /reviews_dot_notation                       |                                                       
+    |    {                                               |   
+    |    "mappings": {                                   |               
+    |        "properties": {                             |                       
+    |        "rating": { "type": "float" },              |                                   
+    |        "content": { "type": "text" },              |                                   
+    |        "product_id": { "type": "integer" },        |                                           
+    |        "author.first_name": { "type": "text" },    |                                               
+    |        "author.last_name": { "type": "text" },     |                                               
+    |        "author.email": { "type": "keyword" }       |                                           
+    |        }                                           |       
+    |      }                                             |       
+    |    }                                               |   
+    -----------------------------------------------------
+
+This will produce same results as above but this is a more readable way. What ES does is while processing the mapping it will use properties whenver dot notation is used
+
+*Adding mappings to exiting indices:
+
+	--> Use the mapping API
+    ---------------------------------------
+    |    PUT /review/_mapping             |                                            
+    |    {                                |              
+    |      "properties":{                 |                              
+    |        "created_at":{"type":"date"} |                                              
+    |      }                              |                  
+    |    }                                |              
+    ---------------------------------------
+How dates work in ElasticSearch:
+---------------------------------
+	-> Specified in one of 3 ways:
+		1) Specially formatted strings
+		2) Milliseconds since the epoch (long)
+		3) Seconds since the epoch(integer)
+		Epoch refers to 1st Jan 1970
+		Custom formats are also supported
+
+
+	-> Three supported formats:
+		- A date with time
+		- A date without time
+		- Milliseconds since the epoch
+		- UTC timezone is default ISO 8601 format
+
+	-> Elasticsearch stores dates as milliseconds since the epoch even if you specify string date it will convert to long
+	-> If the time is not specified then ES will assume its midnight 00:00
+
+How to handle missing values:
+-----------------------------
+
+	->In ES all fields are optional 
+	->so we can leave any field empty even if we create a mapping for it.
+	->The missing values should be handled at application level
+Mapping Parameters:
+----------------------
+1) format parameter:
+	Used to customize the format for date fields
+	Wherever posssible default should be used
+	Using Java's DateFormatter syntax:
+	E.g: "dd/MM/yyyy"
+	Using built-in formats
+	E.g: "epoch_second"
+
+2) properties parameter:
+	Define nested fields for object and nested fields
+3) coerce paramter:
+	Used to enable or disable coercion of value (default enabled)
+4) doc_values parameter:
+	-> ES makes use of several data structures
+	-> Inverted indices are excellent for searching but they dont perform  well for many other data access patterns
+	-> "Doc values" is another data structure used by Apache Lucene - It is optimised for a different data access pattern (document->terms)
+	-> It is usually used for sorting, aggregations and scripting. Its an additional data structure not a substitute. ES automatically queries the appropraite data structure depending on the query.
+	-> To disable it we can set the doc_values parameter to false to save disk space
+	-> Only disbale doc_values if you wont use aggregations,sorting or scripting
+	-> Particularly useful for large indices typically not worth it for small ones
+	-> Cannot be changed without reindexing documents into new index.
+5)norms parameter:
+	-> Normalization factors used for relevance scoring
+	-> Many times we dont just want to filter but also rank results
+	-> Norms can be disabled to save disk space
+6) index parameter:
+	-> Disables indexing for the field this means that we wont be able to use those fields in the search queries
+	-> These fields will always be stored in _source . Its just that it wont be present in the index
+	-> Saves disk space and improves indexing throughput	-> It can be useful when that field wont be used for relevance scoring
+7)null_value parameter:
+	-> NULL values cannot be indexed or searched
+	-> Use this parameter to replace NULl values with other value
+	-> Only work for explicit NULL values
+	-> The replacement value should be of the same type as the field
+	-> Does not affect data in the _source
+8) copy_to parameter
+	-> It can be used to copy multiple field values into a "group field"
+	-> Simply specify the name of the target field as the value
+	-> The target field will be a part of the index but not the part of the _source field
+
+Updating existing mappings:
+----------------------------
+	Generally in ElasticSearch field mappings cannot be changed
+	We can add new field mappings only
+	This is because the text values have already been analyzed and changing between some data types would require rebuilding the whole data structure
+	Field mappings cannot be removed
+	limitation for updating mappings:-
+		- even for an empty index, we cannot update a mapping 
+		- field mapping also cannot be removed ,we just leave out the feild when indexing documents
+		- the update by query API can be used to reclaim disk space 
+		- the solution is to reindex documents into a new index 
+Reindexing:
+------------
+1) Create a new index
+2) Index documents from old index to new index using a script or using the _reindex API
+    -------------------------------------		
+    |    POST /_reindex                 |                                             
+    |    {                              |                 
+    |    "source": {                    |                             
+    |        "index": "reviews"         |                                     
+    |    },                             |                 
+    |    "dest": {                      |                         
+    |        "index": "reviews_new"     |                                         
+    |    }                              |                 
+    |    }                              |    
+    -------------------------------------             
+--> The changes are reflected at the index level and not the _source object that we get
+--> To change it in source we can add a script that will do this
+
+Use field Aliases:
+------------------
+We do this by adding new mapping like this-
+    ---------------------------------
+    |    PUT /reviews/_mapping      |                            
+    |    {                          |
+    |    "properties": {            |                
+    |        "comment": {           |                
+    |        "type": "alias",       |                    
+    |        "path": "content"      |                    
+    |        }                      |    
+    |     }                         |
+    |    }                          |
+    ---------------------------------
+This won't show any changes in the _source but when we use the new field mapping that we add using above command then it will show results as it would show for previous field and also it does not change the way in which documents are indexed
+It's also possible create index aliases
+
+* multi feild alies
+* index template 
+* Intro to ECS
+* dynamic mapping 
+* combining explicit and dynamic mapping 
+* configuring dynamic maapping
+* Dynamic templates
+* Mapping recommendation 
+* streaming and stop words 
+* analyzers and search quries 
+* built in analayer 
+* create custom analyzer 
+* adding analyzer to existing indices 
+* updating analyzer 
+
+_________________________________________________________________
+
+search methods:
+			-------------------
+                   |  search methods  |
+			-------------------
+			  /            \
+			 /              \
+             -------------       ----------------
+		| query dsl  |      |  Request URL  |
+         	--------------      -----------------
+i) query DSL 
+  
+   ------------------------------
+    |    GET /product/_search   |                             
+    |    { "query":{            |                 
+    |    "match":{              |             
+    |    "description":{        |                     
+    |    "value":"red wine"     |                     
+    |          }                |            
+    |        }                  |        
+    |      }                    |        
+    |    }                      |    
+    -----------------------------
+
+ii) Request URL
+
+   ---------------------------------------
+   |  GET /product/_search?q=name:pasta  |
+   ---------------------------------------
+
+   -->  To use muliptle parameters:
+   -------------------------------------------------------------------
+   |	GET /product/_search?q=tag:electronics AND name:iphone        |
+   -------------------------------------------------------------------
+
+* Introduction to Query DSL 
+-----------------------------
+	-> There are 2 basic query strcture :-
+             i) leaf query  => leaf queries search for the values within particular fields  
+		ii) compond query => it consists of multiple leaf queries or compond quires  
+					 it is recursive in nature and for example search for documents with a category of fruit
+ 
+	-> the basic difference between leaf and compound queries in Elasticsearch is:
+		     *	Leaf queries are simple queries that operate on a single field and produce a Boolean result.
+			
+		     *	Compound queries are more complex queries that combine multiple leaf queries or other compound queries using Boolean operators.
+* How search Work 
+-------------------
+
+	  -----------------------           Search query                 ------------------------
+        | client               |------------------------------------>  |     Elastic search    |
+        |                      |                                       |                       |                       
+        |                      |<------------------------------------  |                       |
+        |                      |           results                     |                       |
+        ------------------------                                       -------------------------
+
+* search result :-  
+	-> most relavant search result come first 
+	->
+	->
+* understanding relavance sources:-
+
+	-> Elastic search are provides the relavance search not only the exact search unlike database .
+	-> RDMS returns rows with exact match , but ES returns the exact matches and relevance matches too.
+	-> the relavance is , as you have seen represanted with an _source feild which holds a floting 
+
+GET /product/defult/_search?q=pizza ----------->find documents mating the query ----------> how well the documents match? --------> 1) pizza Hawaii
+																				 2) pizza vegetariana
+																				 3) pizza margherita
+
+       understanding _source 
+	--> it uses the algorithum TF/IDF [teram frequency / inverse documents frequency ]
+	--> another algo uses is Okapi BM25 	
+		* Term frequency(TF)-- reffers to the term which we are searching for appers how many time in a feild 
+		* Inverse Document Frequency--> how often does the term appers within the index (i.e. across all documents)
+					   	    --> Eg. how many times the term salad appers within the product index the more oftem the term appers the lower the score and relevance
+ 						    --> the words that apper many times are less siginficant, such as the word the,this ,if etc. so if a document contains the term ansd its not comman term for the feild the this is a signal that doc is relevant	
+		* feild-length norm --> how long is the feild is.
+				 	  --> the longer the feild the less likely the word within the feild are to be relevant 
+		* BM25 --> better at handlig stop words
+			 --> improves the feild-length norm factor 
+			 --> can be configured with parameters
+		
+* debuging unexpacted result 
+-------------------------------
+ 
+API which tell whther the search result matches or not 
+
+GET /product/defult/1/_explain
+
