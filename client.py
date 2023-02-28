@@ -40,8 +40,8 @@ def search_if_index_exits():
 
 def inserting_doc():
     doc = {
-    'author': 'author_name',
-    'text': 'Interensting content...',
+    'author': 'sanskar',
+    'text': 'python',
     'timestamp': datetime.now(),
     }
     resp = es.index(index="test-index", id=1, document=doc)
@@ -69,4 +69,48 @@ def updating_doc():
     resp = es.update(index="test-index", id=1, doc=doc)
     print(resp['result'])
 
-updating_doc()
+def searching_doc_term():
+    query = {
+            "match": {
+                "author": "author_name",
+                "author": "sanskar"
+            }
+        }
+    
+    range_query ={
+            "range": {
+                "price": {
+                    "gte": 5,
+                    "lte": 10
+                }
+            }
+        }
+    bool_query_or= {
+        "bool": {
+            "should": [
+                {"term": {"author": "sanskar"}},
+                {"term": {"text": "c"}}
+            ]
+        }
+    }
+    bool_query_and= {
+        "bool": {
+            "must[]": [
+                {"term": {"author": "sanskar"}},
+                {"term": {"text": "c"}}
+            ]
+        }
+    }
+    query_key = {
+            "term": {
+                "author.keyword": "author_name"
+                
+            }
+        }
+    
+    resp = es.search(index="test-index", query=query_key)
+    print(resp)
+
+
+    
+searching_doc_term()

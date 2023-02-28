@@ -210,7 +210,7 @@ We can combine both mappings.
 			* This is then placed into the inverted index 
 		iii) keyword fields are used for the exact matching ,aggregations,and sorting 
               ----------------------------------------------------
-      	 API->  | POST /_analyze                                  |
+     API->  | POST /_analyze                                  |
 	        |      {                                          |
   	        |	  "text":"This IS A standard! TEXT DOC.",    | 
   	        |	  "analyzer":"keyword"                       |                       
